@@ -34,7 +34,6 @@ class Variable():
         direction = repr(self.direction)
         return f"Variable({self.i}, {self.j}, {direction}, {self.length})"
 
-
 class Crossword():
     def __init__(self, grid, words_file):
         self.structure = []
@@ -51,10 +50,16 @@ class Crossword():
 
         # Save vocabulary list
         with open(words_file) as f:
-            self.words = set(f.read().upper().splitlines())
+            self.words = set(f.read().upper().splitlines()) # to remove all the duplicates
+
+        #     self.words = list(self.words)
+        #     for _ in range(5):
+        #         random.shuffle(self.words)
+        # self.words = set(self.words)
 
         # Determine variable set
         self.variables = set()
+
         for i in range(self.height):
             for j in range(self.width):
 

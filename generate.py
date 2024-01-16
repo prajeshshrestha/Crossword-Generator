@@ -1,7 +1,13 @@
-import sys, copy
+import copy
+import random
+import heapq
+import time
 
-from crossword import *
+from collections import deque
+from queue import PriorityQueue
+from pprint import pprint
 
+from crossword import Crossword, Variable
 
 class CrosswordCreator():
 
@@ -11,11 +17,25 @@ class CrosswordCreator():
         """
         self.crossword = crossword
 
-        # at this point the words can be of the required length for each of the 
+        # setting up the domains for each of the variables
+
         self.domains = {
-            var: self.crossword.words.copy()
+            var: self.get_required_length_answers(var.length)
             for var in self.crossword.variables
         }
+
+    # enforcing the node consistency here
+    def get_required_length_answers(self, ans_length):
+        output = []
+        temp_word_list = list(self.crossword.words.copy())
+        random.shuffle(temp_word_list)
+        for word in temp_word_list:
+            if len(word) == ans_length:
+                output.append(word)
+        random.shuffle(output)
+        output = output[:500]
+        print(len(output))
+        return output
 
     def letter_grid(self, assignment):
         """
@@ -43,7 +63,7 @@ class CrosswordCreator():
                 if self.crossword.structure[i][j]:
                     print(letters[i][j] or " ", end="")
                 else:
-                    print("█", end="")
+                    print("██", end="")
             print()
 
     def save(self, assignment, filename):
@@ -87,11 +107,14 @@ class CrosswordCreator():
 
         img.save(filename)
 
+
+    ### here starts the main solving category
+
     def solve(self):
         """
         Enforce node and arc consistency, and then solve the CSP.
         """
-        self.enforce_node_consistency()
+        # self.enforce_node_consistency() # already being handled during initialization
         self.ac3()
         return self.backtrack(dict())
 
@@ -102,51 +125,42 @@ class CrosswordCreator():
          constraints; in this case, the length of the word.)
         """
         for variable in self.crossword.variables:
-            valid_words = set()
+            valid_words = []
             for word in self.domains[variable]:
                 if len(word) == variable.length:
-                    valid_words.add(word)
+                    valid_words.append(word)
             self.domains[variable] = valid_words
-        
 
     def revise(self, x, y):
         """
-        Make variable `x` arc consistent with variable `y`.
-        To do so, remove values from `self.domains[x]` for which there is no
-        possible corresponding value for `y` in `self.domains[y]`.
+            Make variable `x` arc consistent with variable `y`.
+            To do so, remove values from `self.domains[x]` for which there is no
+            possible corresponding value for `y` in `self.domains[y]`.
 
-        Return True if a revision was made to the domain of `x`; return
-        False if no revision was made.
+            Return True if a revision was made to the domain of `x`; return
+            False if no revision was made.
         """
         revised = False
-        new_domain = set()
         overlap = self.crossword.overlaps[x, y]
-        if overlap:
-            for word in self.domains[x]:
-                if word[overlap[0]] in [wordy[overlap[1]] for wordy in self.domains[y]]:
-                    new_domain.add(word)
-                else:
-                    revised = True
-            self.domains[x] = new_domain
+        y_chars = {word[overlap[1]] for word in self.domains[y]}  # Precompute the y's second character set
+        self.domains[x] = {word for word in self.domains[x] if word[overlap[0]] in y_chars}
+        if len(self.domains[x]) < len(self.domains[y]):
+            revised = True
         return revised
 
     def ac3(self, arcs=None):
-        """
-        Update `self.domains` such that each variable is arc consistent.
-        If `arcs` is None, begin with initial list of all arcs in the problem.
-        Otherwise, use `arcs` as the initial list of arcs to make consistent.
+        if arcs is None:
+            arcs = deque([(v1, v2) for v1 in self.crossword.variables for v2 in self.crossword.neighbors(v1)])
+        else:
+            arcs = deque(arcs)
 
-        Return True if arc consistency is enforced and no domains are empty;
-        return False if one or more domains end up empty.
-        """
-        if arcs == None:
-            arcs = [(v1, v2) for v1 in self.crossword.variables for v2 in self.crossword.variables if v1 != v2]
         while arcs:
-            x, y = arcs.pop(0) # dequeue
+            x, y = arcs.popleft()  # Efficient pop from the left
             if self.revise(x, y):
                 if not self.domains[x]:
                     return False
-                arcs.extend(set([(v, x) for v in self.crossword.neighbors(x)]) - {(y, x)})
+                for z in self.crossword.neighbors(x) - {y}:
+                    arcs.append((z, x))
         return True
 
     def assignment_complete(self, assignment):
@@ -168,29 +182,19 @@ class CrosswordCreator():
 
     def consistent(self, assignment):
         """
-        Return True if `assignment` is consistent (i.e., words fit in crossword
-        puzzle without conflicting characters); return False otherwise.
+          Return True if `assignment` is consistent (i.e., words fit in crossword
+          puzzle without conflicting characters); return False otherwise.
         """
-        values = [] # Must in be a list.
-        consistent = True
-        for var in assignment:
-            assert isinstance(assignment[var], str)
-            if assignment[var] in values:
-                consistent = False
-                break
-            else:
-                values.append(assignment[var])
-
-            if var.length != len(assignment[var]):
-                consistent = False
-                break 
+        values = set()
+        for var, word in assignment.items():
+            if word in values or len(word) != var.length:
+                return False
+            values.add(word)
             for neighbor in self.crossword.neighbors(var):
-                if neighbor in assignment:
-                    overlap = self.crossword.overlaps[var, neighbor]
-                    if assignment[var][overlap[0]] != assignment[neighbor][overlap[1]]:
-                        consistent = False
-                        break
-        return consistent
+                overlap = self.crossword.overlaps[var, neighbor]
+                if neighbor in assignment and assignment[var][overlap[0]] != assignment[neighbor][overlap[1]]:
+                    return False
+        return True
 
     def order_domain_values(self, var, assignment):
         """
@@ -199,24 +203,32 @@ class CrosswordCreator():
         The first value in the list, for example, should be the one
         that rules out the fewest values among the neighbors of `var`.
         """
-        values_penalty = {value: 0 for value in self.domains[var]}
-        for neighbor in self.crossword.neighbors(var):
-            if neighbor not in assignment:
-                overlap = self.crossword.overlaps[var, neighbor]
-                for value in self.domains[var]:
-                    for value2 in self.domains[neighbor]:
-                        if value[overlap[0]] != value2[overlap[1]]:
-                            values_penalty[value] += 1
+        word_cost = []
 
-        return sorted([value in self.domains[var]], key= lambda item: values_penalty[item])
+        for i, word in enumerate(self.domains[var]):
+            word_cost.append([word, 0])
+            unassigned_neighbors = list(filter(lambda neighbor: neighbor not in assignment , self.crossword.neighbors(var)))
+            for neighbor in unassigned_neighbors:
+                for n_word in self.domains[neighbor]:
+                    cors = self.crossword.overlaps[(var, neighbor)]
+                    if len(word) > cors[0] and len(n_word) > cors[1]:
+                        if word[cors[0]] != n_word[cors[1]]:
+                            word_cost[i][1] += 1
+
+        # var_words = list(sorted(word_cost, key=lambda word: word_cost[word]))
+        sorted_word_cost = sorted(word_cost, key=lambda word: word[1])
+        ordered_domain_values = list(map(lambda word: word[0], sorted_word_cost))
+
+        return ordered_domain_values
 
     def select_unassigned_variable(self, assignment):
         """
-        Return an unassigned variable not already part of `assignment`.
-        Choose the variable with the minimum number of remaining values
-        in its domain. If there is a tie, choose the variable with the highest
-        degree. If there is a tie, any of the tied variables are acceptable
-        return values.
+        Ordering:
+          Return an unassigned variable not already part of `assignment`.
+          Choose the variable with the minimum number of remaining values - MRV
+          in its domain. If there is a tie, choose the variable with the highest
+          degree. If there is a tie, any of the tied variables are acceptable
+          return values.
         """
         var_penalty = {}
         for var in self.crossword.variables:
@@ -230,6 +242,7 @@ class CrosswordCreator():
                 return vars[1]
         return vars[0]
 
+    # Modify the backtrack method
     def backtrack(self, assignment):
         """
         Using Backtracking Search, take as input a partial assignment for the
@@ -239,18 +252,21 @@ class CrosswordCreator():
 
         If no assignment is possible, return None.
         """
-        if self.assignment_complete(assignment): return assignment # base case
+        if self.assignment_complete(assignment):
+            return assignment  # base case
 
         var = self.select_unassigned_variable(assignment)
 
+        # for value in self.order_domain_values(var, assignment):
+
         for value in self.domains[var]:
-            new_assignment = copy.deepcopy(assignment)
+            new_assignment = assignment.copy()  # or dict(assignment)
             new_assignment[var] = value
             if self.consistent(new_assignment):
                 result = self.backtrack(new_assignment)
-                if result != None: return result
+                if result is not None:
+                    return result
         return None
-
 
 
 def main(grid, word_list, output):
