@@ -7,7 +7,7 @@ import time
 
 from pprint import pprint
 from PIL import Image, ImageDraw, ImageFont
-from math import ceil
+from math import ceil, floor
 
 def returnJSON(grid_formatted, rows,cols):
     grid = []
@@ -17,8 +17,6 @@ def returnJSON(grid_formatted, rows,cols):
     # if (x,y) is present in these array the cell (x,y) is already accounted as a part of answer of across or down
     in_horizontal = []
     in_vertical = []
-
-
     num = 0
 
     for x in range(0, cols ):
@@ -201,6 +199,18 @@ def create_crossword_grid(rows, cols):
     grid = [[' ' for _ in range(cols)] for _ in range(rows)]
     return grid
 
+def get_symmetric_tiles(symmetry, row, col, grid_size):
+  if symmetry == 'diagonal':
+    sym_row = grid_size - 1 - row
+    sym_col = grid_size - 1 - col
+  elif symmetry == 'horizontal':
+    sym_row = grid_size - 1 - row
+    sym_col = col
+  else:
+    sym_row = row
+    sym_col = grid_size - 1 - col
+  return sym_row, sym_col
+    
 def add_black_squares(grid, max_iters = 600):
     """
     Add black squares to the crossword grid based on probability calculations.
@@ -214,8 +224,15 @@ def add_black_squares(grid, max_iters = 600):
     """
     black_tiles = []
     white_tiles = [x for x in range(len(grid) * len(grid[0])) if x not in black_tiles]
-    needed_black = ceil(len(grid) * len(grid[0]) / 6)
+    needed_black = floor(len(grid) * len(grid[0]) / 6)
     max_iterations = max_iters  # Set a reasonable maximum iteration count
+
+    if random.random() < 0.7:
+      symmetry = 'diagonal'
+    elif 0.7 <= random.random() < 0.85:
+      symmetry = 'vertical'
+    else:
+      symmetry = 'horizontal'
 
     iterations = 0
 
@@ -256,8 +273,8 @@ def add_black_squares(grid, max_iters = 600):
 
         if grid[row][col] == ' ' and random.random() < max(odds_row, odds_col, odds_corner):
             grid[row][col] = '.'
-            sym_row = len(grid) - 1 - row
-            sym_col = len(grid[0]) - 1 - col
+            sym_row, sym_col = get_symmetric_tiles(symmetry, row, col, len(grid))
+            
             grid[sym_row][sym_col] = '.'
 
             if not check_status(grid):
@@ -270,23 +287,76 @@ def add_black_squares(grid, max_iters = 600):
         iterations += 1
     return grid, iterations
 
-def generate_grid(grid_size = 15, max_iters = 600):
+def create_crossword_image(grid, grid_nums, cell_size = 30, black_square_color="black", text_color="black"):
+    """
+    Create an image representation of the crossword grid.
+
+    Parameters:
+    - grid (list): The crossword grid.
+    - cell_size (int): Size of each cell in pixels.
+    - black_square_color (str): Color for black squares.
+    - text_color (str): Color for text.
+    - image_file (str): File name to save the image.
+
+    Returns:
+    - None
+    """
+    height = len(grid) * cell_size + 1
+    width = len(grid[0]) * cell_size + 1
+
+    img = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(img)
+
+    font = ImageFont.load_default()
+
+    # Adjust font size
+    font_size = 8  # Set your desired font size
+    font = ImageFont.truetype("/content/Roboto-Regular.ttf", font_size)
+
+    for row in range(len(grid)):
+        for col in range(len(grid[row])):
+            x = col * cell_size
+            y = row * cell_size
+            rect = [(x, y), (x + cell_size, y + cell_size)]
+
+            if grid[row][col] == ".":
+                draw.rectangle(rect, fill = black_square_color)
+            else:
+                draw.rectangle(rect, outline = "black")
+                if grid_nums[row][col] != 0:
+                  draw.text((x + cell_size // 2 - 7, y + cell_size // 2 - 8), str(grid_nums[row][col]), fill=text_color, anchor="mm", font=font)
+
+    img_array = np.array(img)
+    # plt.figure(figsize = (6, 6))
+    # plt.imshow(img_array)
+    # plt.axis('off')
+    # plt.show()
+    # img.save(image_file)
+    return img_array
+
+
+def generate_grid(grid_size = 15, max_iters = 600, return_grid = False):
     rows = cols = grid_size
 
     no_ran_iters = max_iters
 
     if grid_size != 4:
-      while no_ran_iters == max_iters:
+        while no_ran_iters == max_iters:
+            crossword_grid = create_crossword_grid(rows, cols)
+            crossword_grid, no_ran_iters = add_black_squares(crossword_grid, max_iters)
+    else:
         crossword_grid = create_crossword_grid(rows, cols)
         crossword_grid, no_ran_iters = add_black_squares(crossword_grid, max_iters)
-    else:
-      crossword_grid = create_crossword_grid(rows, cols)
-      crossword_grid, no_ran_iters = add_black_squares(crossword_grid, max_iters)
-
-    # pprint(crossword_grid)
 
     # json data
     json_data = returnJSON(crossword_grid, rows, cols)
-    return json_data
+    grid_nums = json_data['gridnums']
+    reshaped_grid = [grid_nums[i:i + rows] for i in range(0, len(grid_nums), rows)]
 
-generate_grid(grid_size = 15)
+    if return_grid:
+        grid_img_array = create_crossword_image(crossword_grid, reshaped_grid)
+        return grid_img_array, json_data
+    else:
+        return json_data
+
+generate_grid(grid_size = 15, max_iters = 600, return_grid = True)

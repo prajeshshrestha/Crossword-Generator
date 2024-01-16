@@ -36,10 +36,12 @@ class Variable():
 
 
 class Crossword():
+
     def __init__(self, grid, words_file):
+
+        self.height = len(grid)
+        self.width = max(len(line) for line in grid)
         self.structure = []
-        self.height = len(grid) # the number of rows in the grid
-        self.width = len(grid[0]) # the number of columns in the grid
         for i in range(len(grid)):
             row = []
             for j in range(len(grid[0])):
