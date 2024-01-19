@@ -254,7 +254,8 @@ class CrosswordCreator():
         """
         if self.assignment_complete(assignment):
             return assignment  # base case
-
+        
+        self.ac3()
         var = self.select_unassigned_variable(assignment)
 
         # for value in self.order_domain_values(var, assignment):
