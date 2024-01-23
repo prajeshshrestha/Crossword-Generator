@@ -200,16 +200,16 @@ def create_crossword_grid(rows, cols):
     return grid
 
 def get_symmetric_tiles(symmetry, row, col, grid_size):
-  if symmetry == 'diagonal':
-    sym_row = grid_size - 1 - row
-    sym_col = grid_size - 1 - col
-  elif symmetry == 'horizontal':
-    sym_row = grid_size - 1 - row
-    sym_col = col
-  else:
-    sym_row = row
-    sym_col = grid_size - 1 - col
-  return sym_row, sym_col
+    if symmetry == 'diagonal':
+        sym_row = grid_size - 1 - row
+        sym_col = grid_size - 1 - col
+    elif symmetry == 'horizontal':
+        sym_row = grid_size - 1 - row
+        sym_col = col
+    else:
+        sym_row = row
+        sym_col = grid_size - 1 - col
+    return sym_row, sym_col
     
 def add_black_squares(grid, max_iters = 600):
     """
