@@ -38,7 +38,7 @@ puzpy==0.2.5
     # via blacksquare (pyproject.toml)
 pygments==2.16.1
     # via rich
-pypdf==3.16.2
+pypdf==3.17.0
     # via blacksquare (pyproject.toml)
 pyproject-hooks==1.0.0
     # via build
