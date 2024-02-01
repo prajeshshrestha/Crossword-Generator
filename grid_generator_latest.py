@@ -317,7 +317,7 @@ def create_crossword_image(grid, grid_nums, cell_size = 30, black_square_color="
 
     # Adjust font size
     font_size = 8  # Set your desired font size
-    font = ImageFont.truetype("/content/Roboto-Regular.ttf", font_size)
+    font = ImageFont.truetype("./Roboto-Regular.ttf", font_size)
 
     for row in range(len(grid)):
         for col in range(len(grid[row])):

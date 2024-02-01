@@ -156,6 +156,64 @@ class Crossword:
             xw[DOWN, cn["num"]].clue = cn["clue"]
         return xw
 
+    def get_puz_data(self):
+        puz_black, puz_empty = ".", "-"
+        puz_obj = puz.Puzzle()
+        puz_obj.height = self.num_rows
+        puz_obj.width = self.num_cols
+
+        char_array = np.array([cell.str for cell in self._grid.ravel()])
+        puz_obj.solution = (
+            "".join(char_array)
+            .replace(EMPTY.str, puz_empty)
+            .replace(BLACK.str, puz_black)
+        )
+        fill_grid = char_array.copy()
+        fill_grid[fill_grid != BLACK.str] = puz_empty
+        fill_grid[fill_grid == BLACK.str] = puz_black
+        puz_obj.fill = "".join(fill_grid)
+        sorted_words = sorted(
+            list(self.iterwords()), key=lambda w: (w.number, w.direction)
+        )
+        puz_obj.clues = [w.clue for w in sorted_words]
+        puz_obj.cksum_global = puz_obj.global_cksum()
+        puz_obj.cksum_hdr = puz_obj.header_cksum()
+        puz_obj.cksum_magic = puz_obj.magic_cksum()
+
+        return puz_obj
+    
+    def get_json_data(self):
+        """ Converts a puzzle in .puz format to .json format
+        """
+        p = self.get_puz_data()
+        numbering = p.clue_numbering()
+
+        grid = [[None for _ in range(p.width)] for _ in range(p.height)]
+        for row_idx in range(p.height):
+            cell = row_idx * p.width
+            row_solution = p.solution[cell:cell + p.width]
+            for col_index, item in enumerate(row_solution):
+                if p.solution[cell + col_index:cell + col_index + 1] == '.':
+                    grid[row_idx][col_index] = 'BLACK'
+                else:
+                    grid[row_idx][col_index] = ["", row_solution[col_index: col_index + 1]]
+
+        across_clues = {}
+        for clue in numbering.across:
+            answer = ''.join(p.solution[clue['cell'] + i] for i in range(clue['len']))
+            across_clues[str(clue['num'])] = [clue['clue'] + ' ', ' ' + answer]
+            grid[int(clue['cell'] / p.width)][clue['cell'] % p.width][0] = str(clue['num'])
+
+        down_clues = {}
+        for clue in numbering.down:
+            answer = ''.join(p.solution[clue['cell'] + i * numbering.width] for i in range(clue['len']))
+            down_clues[str(clue['num'])] = [clue['clue'] + ' ', ' ' + answer]
+            grid[int(clue['cell'] / p.width)][clue['cell'] % p.width][0] = str(clue['num'])
+
+        mydict = {'metadata': {'date': None, 'rows': p.height, 'cols': p.width}, 'clues': {'across': across_clues, 'down': down_clues}, 'grid': grid}
+        return mydict
+        
+    
     def to_puz(self, filename: str) -> None:
         """Outputs a .puz file from the Crossword object.
 
@@ -259,6 +317,7 @@ class Crossword:
                     "margin-left": "0.5in",
                     "encoding": "UTF-8",
                 },
+                configuration = pdfkit.configuration(wkhtmltopdf = b"C:\Program Files\wkhtmltopdf\\bin\wkhtmltopdf.exe")
             )
             merger.append(PdfReader(io.BytesIO(pdf)))
         merger.write(str(filename))
