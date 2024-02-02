@@ -293,7 +293,7 @@ def add_black_squares(grid, max_iters = 600, black_factor = 6):
         iterations += 1
     return grid, iterations, symmetry
 
-def create_crossword_image(grid, grid_nums, cell_size = 30, black_square_color="black", text_color="black", image_file="crossword.png"):
+def visualize_crossword_image(grid, grid_nums, cell_size = 30, black_square_color="black", text_color="black", image_file="crossword.png"):
     """
     Create an image representation of the crossword grid.
 
@@ -364,6 +364,6 @@ def generate_grid(grid_size = 15, max_iters = 600, b_factor = 6, display_grid = 
     #   json.dump(json_data, f)
 
     if display_grid:
-        create_crossword_image(crossword_grid, reshaped_grid, image_file = "crossword.png")
+        visualize_crossword_image(crossword_grid, reshaped_grid, image_file = "crossword.png")
 
     return json_data, symmetry
