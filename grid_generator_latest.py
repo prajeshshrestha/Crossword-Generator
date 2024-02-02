@@ -231,14 +231,14 @@ def add_black_squares(grid, max_iters = 600, black_factor = 6):
     max_iterations = max_iters  # Set a reasonable maximum iteration count
 
     if len(grid) > 7:
-      if random.random() < 0.7:
-        symmetry = 'diagonal'
-      elif 0.7 <= random.random() < 0.85:
-        symmetry = 'vertical'
-      else:
-        symmetry = 'horizontal'
+        if random.random() < 0.7:
+            symmetry = 'diagonal'
+        elif 0.7 <= random.random() < 0.85:
+            symmetry = 'vertical'
+        else:
+            symmetry = 'horizontal'
     else:
-      symmetry = 'diagonal'
+        symmetry = 'diagonal'
 
     iterations = 0
 
@@ -291,7 +291,7 @@ def add_black_squares(grid, max_iters = 600, black_factor = 6):
                 white_tiles.remove(row * len(grid[0]) + col)
 
         iterations += 1
-    return grid, iterations
+    return grid, iterations, symmetry
 
 def create_crossword_image(grid, grid_nums, cell_size = 30, black_square_color="black", text_color="black", image_file="crossword.png"):
     """
@@ -347,10 +347,10 @@ def generate_grid(grid_size = 15, max_iters = 600, b_factor = 6, display_grid = 
     if grid_size != 4:
       while no_ran_iters == max_iters:
         crossword_grid = create_crossword_grid(rows, cols)
-        crossword_grid, no_ran_iters = add_black_squares(crossword_grid, max_iters, black_factor = b_factor)
+        crossword_grid, no_ran_iters, symmetry = add_black_squares(crossword_grid, max_iters, black_factor = b_factor)
     else:
-      crossword_grid = create_crossword_grid(rows, cols)
-      crossword_grid, no_ran_iters = add_black_squares(crossword_grid, max_iters, black_factor = b_factor)
+        crossword_grid = create_crossword_grid(rows, cols)
+        crossword_grid, no_ran_iters, symmetry = add_black_squares(crossword_grid, max_iters, black_factor = b_factor)
 
     # pprint(crossword_grid)
 
@@ -362,7 +362,8 @@ def generate_grid(grid_size = 15, max_iters = 600, b_factor = 6, display_grid = 
     # print(len(json_data['across_nums'] + json_data['down_nums']))
     # with open("crossword_json.json", 'w') as f:
     #   json.dump(json_data, f)
-    if display_grid:
-      create_crossword_image(crossword_grid, reshaped_grid, image_file = "crossword.png")
 
-    return json_data
+    if display_grid:
+        create_crossword_image(crossword_grid, reshaped_grid, image_file = "crossword.png")
+
+    return json_data, symmetry
